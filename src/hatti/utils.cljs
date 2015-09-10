@@ -54,3 +54,8 @@
   "Create an appropriately pluralized string prefix by number."
   [number kind]
   (join " " [number (if (= 1 number) kind (plural kind))]))
+
+(defn in?
+  "True if elem is in list, false otherwise."
+  [list elem]
+  (boolean (some #(= elem %) list)))

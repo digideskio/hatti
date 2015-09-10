@@ -34,6 +34,7 @@
   []
   (atom
    {:views {:all [:overview :map :table :chart :settings]
+            :disabled []
             :selected :overview}
     :map-page {:data []
                :submission-clicked {:data nil}

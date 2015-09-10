@@ -15,7 +15,7 @@
             [hatti.views.chart]
             [hatti.views.settings]
             [hatti.views.overview]
-            [hatti.utils :refer [click-fn pluralize-number]]))
+            [hatti.utils :refer [click-fn in? pluralize-number]]))
 
 (def dataview-map
   {:overview {:view :overview
@@ -100,8 +100,9 @@
             dataviews (->> app-state :views :all
                            (map dataview-map) (remove nil?))
             dv->link (fn [{:keys [view label]}]
-                       (if (and (= view :map) no-geodata?)
-                         [:a {:class "inactive" :title "No geodata"}
+                       (if (or (and (= view :map) no-geodata?)
+                               (in? (-> app-state :views :disabled) view))
+                         [:a {:class "inactive" :title "No data"}
                           (name view)]
                          [:a {:href (str "#/" (name view))
                               :class (view->cls view)} label]))]
