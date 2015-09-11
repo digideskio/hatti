@@ -102,7 +102,8 @@
             dv->link (fn [{:keys [view label]}]
                        (if (or (and (= view :map) no-geodata?)
                                (in? (-> app-state :views :disabled) view))
-                         [:a {:class "inactive" :title (if no-geodata?
+                         [:a {:class "inactive" :title (if (and no-geodata?
+                                                                (= view :map))
                                                          "No geodata"
                                                          "Disabled")}
                           (name view)]
