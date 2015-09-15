@@ -29,10 +29,10 @@
         'hatti.map.viewby-test
         'hatti.ona.post-process-test
         'hatti.views.chart-test
+        'hatti.views.table-test
         'hatti.views.dataview-test
         'hatti.views.map-test
         'hatti.views.record-test
-        'hatti.views.table-test
         'hatti.shared-test))
    0
    1))
