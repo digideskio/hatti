@@ -4,6 +4,7 @@
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [sablono.core :as html :refer-macros [html]]
+            [hatti.constants :refer [_id _rank]]
             [hatti.ona.forms :as forms :refer [get-label format-answer]]
             [hatti.views :refer [table-page table-header table-search
                                  label-changer submission-view]]
@@ -13,7 +14,6 @@
             [cljsjs.slickgrid-with-deps]))
 
 ;; DIVS
-
 (def table-id "submission-grid")
 (def pager-id "pager")
 
@@ -21,7 +21,7 @@
 (defn get-extra-fields
    "Extra fields that will be displayed on the table."
   [is-filtered-dataview?]
-  (let [extra-field  [{:full-name "_rank" :label "#" :name "_rank" :type "integer"}]]
+  (let [extra-field  [{:full-name _rank :label "#" :name _rank :type "integer"}]]
     (if is-filtered-dataview?
       extra-field
       (conj extra-field forms/submission-time-field))))
@@ -84,6 +84,10 @@
          :name label :toolTip label :sortable true
          :formatter (partial formatter field language)})))))
 
+(defn- init-sg-pager [grid dataview]
+  (let [Pager (.. js/Slick -Controls -Pager)]
+    (Pager. dataview grid (js/jQuery (str "#" pager-id)))))
+
 (def sg-options
   "Options to feed the slickgrid constructor."
   #js {:enableColumnReorder false
@@ -98,10 +102,8 @@
   (let [columns (flat-form->sg-columns form true nil :is-filtered-dataview? is-filtered-dataview?)
         SlickGrid (.. js/Slick -Grid)
         DataView (.. js/Slick -Data -DataView)
-        Pager (.. js/Slick -Controls -Pager)
         dataview (DataView.)
-        grid (SlickGrid. (str "#" table-id) dataview columns sg-options)
-        pager (Pager. dataview grid (js/jQuery (str "#" pager-id)))]
+        grid (SlickGrid. (str "#" table-id) dataview columns sg-options)]
     ;; dataview / grid hookup
     (.subscribe (.-onRowCountChanged dataview)
                 (fn [e args]
@@ -117,32 +119,33 @@
                   (.sort dataview (compfn args) (aget args "sortAsc"))))
     (.subscribe (.-onDblClick grid)
                 (fn [e args]
-                  (let [rank (aget (.getItem dataview (aget args "row")) "_rank")]
+                  (let [rank (aget (.getItem dataview (aget args "row")) _rank)]
                     (put! shared/event-chan {:submission-to-rank rank}))))
     ;; page, filter, and data set-up on the dataview
+    (init-sg-pager grid dataview)
     (.setPagingOptions dataview #js {:pageSize 25})
     (.setFilter dataview (partial filterfn form))
-    (.setItems dataview (clj->js data) "_id")
+    (.setItems dataview (clj->js data) _id)
     [grid dataview]))
 
 ;; EVENT LOOPS
 
 (defn handle-table-events
-  [cursor grid dataview]
+  [app-state grid dataview]
   "Event loop for the table view. Processes a tap of share/event-chan,
-   and updates cursor/dataview/grid as needed."
+   and updates app-state/dataview/grid as needed."
   (let [event-chan (shared/event-tap)]
     (go
      (while true
        (let [e (<! event-chan)
              {:keys [submission-to-rank submission-clicked submission-unclicked
                      filter-by new-columns re-render]} e
-             update-data! (partial om/update! cursor
+             update-data! (partial om/update! app-state
                                    [:table-page :submission-clicked :data])]
          (when submission-to-rank
            (let [rank submission-to-rank
-                 submission (-> (filter #(= rank (get % "_rank"))
-                                        (get-in @cursor [:table-page :data]))
+                 submission (-> (filter #(= rank (get % _rank))
+                                        (get-in @app-state [:data]))
                                 first)]
              (update-data! submission)))
          (when submission-clicked
@@ -160,12 +163,13 @@
            (go (<! (timeout 20))
                (.resizeCanvas grid)
                (.invalidateAllRows grid)
-               (.render grid))))))))
+               (.render grid)
+               (init-sg-pager grid dataview))))))))
 
 ;; OM COMPONENTS
 
 (defmethod label-changer :default
-  [cursor owner]
+  [_ owner]
   (reify
     om/IInitState
     (init-state [_] {:name-or-label :label})
@@ -235,18 +239,18 @@
       [grid dataview])))
 
 (defmethod table-page :default
-  [cursor owner opts]
+  [app-state owner opts]
   "Om component for the table grid.
    Renders empty divs via om, hooks up slickgrid to these divs on did-mount."
   (reify
     om/IRenderState
     (render-state [_ _]
-      (let [no-data? (empty? (get-in cursor [:table-page :data]))
-            with-info #(merge % {:dataset-info (:dataset-info cursor)})]
+      (let [no-data? (empty? (get-in app-state [:data]))
+            with-info #(merge % {:dataset-info (:dataset-info app-state)})]
         (html
          [:div.table-view
           (om/build submission-view
-                    (with-info (get-in cursor [:table-page :submission-clicked]))
+                    (with-info (get-in app-state [:table-page :submission-clicked]))
                     {:opts (merge (select-keys opts #{:delete-record! :role})
                                   {:view :table})})
           (if no-data?
@@ -255,20 +259,20 @@
             [:div {:id table-id :class "slickgrid"}]])))
     om/IDidMount
     (did-mount [_]
-      (let [data (get-in cursor [:table-page :data])]
+      (let [data (get-in app-state [:data])]
         (when-let [[grid dataview] (init-grid! data owner)]
-          (handle-table-events cursor grid dataview))))
+          (handle-table-events app-state grid dataview))))
     om/IWillReceiveProps
     (will-receive-props [_ next-props]
       "will-recieve-props resets slickgrid data if the table data has changed."
-      (let [old-data (get-in (om/get-props owner) [:table-page :data])
-            new-data (get-in next-props [:table-page :data])
+      (let [old-data (get-in (om/get-props owner) [:data])
+            new-data (get-in next-props [:data])
             {:keys [grid dataview]} (om/get-state owner)]
         (when (not= old-data new-data)
           (if (empty? old-data)
             (when-let [[grid dataview] (init-grid! new-data owner)]
-              (handle-table-events cursor grid dataview))
+              (handle-table-events app-state grid dataview))
             (do ; data has changed
               (.invalidateAllRows grid)
-              (.setItems dataview (clj->js new-data) "_id")
+              (.setItems dataview (clj->js new-data) _id)
               (.render grid))))))))

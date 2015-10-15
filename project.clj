@@ -1,5 +1,7 @@
-(defproject org.clojars.onaio/hatti "0.1.7"
+(defproject org.clojars.onaio/hatti "0.2-SNAPSHOT"
   :description "A cljs dataview from your friends at Ona.io"
+  :license "Apache 2, see LICENSE"
+  :url "https://github.com/onaio/hatti"
   :dependencies [ ;; CORE HATTI REQUIREMENTS
                  [org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "0.0-3308"]
@@ -16,6 +18,7 @@
                  ;; JS REQUIREMENTS
                  [cljsjs/moment "2.9.0-1"]
                  [onaio/leaflet-cljs "0.7.3-SNAPSHOT"]
+                 [cljsjs/oboe "2.1.2-1"]
                  [cljsjs/jquery "1.9.1-0"]
                  [prabhasp/slickgrid-cljs "0.0.1"]
                  [prabhasp/osmtogeojson-cljs "2.2.5-1"]
@@ -25,7 +28,7 @@
                  [prismatic/dommy "0.1.2"]
                  [cljs-http "0.1.17"]]
   :source-paths ["src"]
-  :plugins [[lein-cljsbuild "1.0.5"]]
+  :plugins [[lein-cljsbuild "1.1.0"]]
   :clean-targets ["out/hatti" "out/hatti.js"]
   :cljsbuild
   {:builds [{:id "hatti"
